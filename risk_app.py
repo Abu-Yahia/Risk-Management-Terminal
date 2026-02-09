@@ -14,7 +14,7 @@ except Exception as e:
     st.error("⚠️ Error: Check your OpenAI API Key in Streamlit Secrets.")
     st.stop()
 
-# --- 3. قائمة الأقسام المعتمدة من صورتك ---
+# --- 3. قائمة الأقسام المعتمدة (تم حذف Operational) ---
 MAIN_CATEGORIES = [
     "CONSTRUCTION", "DESIGN", "INTERFACES", "COMMERCIAL", 
     "PROCUREMENT", "HEALTH_SAFETY", "PROJECT_MANAGEMENT", 
@@ -26,24 +26,25 @@ def generate_risk_details(subject):
     prompt = f"""
     Analyze the risk subject: '{subject}'. 
     Provide a professional assessment in JSON format with exactly 28 fields.
-    Constraint: The 'Main Category' MUST be one of these: {", ".join(MAIN_CATEGORIES)}.
+    STRICT CONSTRAINT: The 'Main Category' MUST be selected ONLY from this list: {", ".join(MAIN_CATEGORIES)}.
+    
     Fields: 1. Risk ID, 2. Key Risks, 3. Risk Type, 4. Risk Status, 5. Identification Date, 6. Risk Statement, 7. Cause(s), 8. Risk Event Description, 9. Consequence(s), 10. Main Category, 11. Sub Category, 12. Risk Owner, 13. Trigger Condition(s), 14. WBS / Activity, 15. Objective / Value, 16. Rank, 17. Risk Score, 18. Treatment Strategy, 19. Response Plan, 20. Action Owner, 21. Action Progress Status, 22. % Action Completion, 23. Action Finish Date, 24. Action Type, 25. Qualitative Impact, 26. Probability Level, 27. Residual Risk, 28. Notes.
+    
     Return ONLY a valid JSON.
     """
     try:
         response = client.chat.completions.create(
             model="gpt-3.5-turbo",
-            messages=[{"role": "system", "content": "You are a professional Risk Manager."},
+            messages=[{"role": "system", "content": "You are an expert Risk Manager. You strictly follow the provided categories."},
                       {"role": "user", "content": prompt}],
             response_format={ "type": "json_object" }
         )
         return json.loads(response.choices[0].message.content)
     except Exception as e:
-        # إصلاح خطأ التوقيت يدوياً هنا
         return {
             "Risk ID": f"RSK-{int(datetime.now().timestamp())}",
             "Key Risks": subject,
-            "Main Category": "ANALYSIS_ERROR",
+            "Main Category": "CONSTRUCTION", # افتراضي في حالة الخطأ
             "Notes": str(e)
         }
 
@@ -51,11 +52,11 @@ def generate_risk_details(subject):
 st.title("🛡️ SEF Risk Intelligence Terminal")
 st.markdown("---")
 
-subject_input = st.text_input("Enter Risk Subject (e.g., Late delivery of materials):")
+subject_input = st.text_input("Enter Risk Subject (e.g., Soil contamination found):")
 
-if st.button("🚀 Run Comprehensive 28-Point Analysis"):
+if st.button("🚀 Run Full 28-Point Analysis"):
     if subject_input:
-        with st.spinner("AI is analyzing all 28 dimensions..."):
+        with st.spinner("Analyzing against the 10 core categories..."):
             result = generate_risk_details(subject_input)
             st.session_state['current_risk'] = result
     else:
@@ -65,7 +66,6 @@ if st.button("🚀 Run Comprehensive 28-Point Analysis"):
 if 'current_risk' in st.session_state:
     data = st.session_state['current_risk']
     
-    # مؤشرات علوية ملونة
     c1, c2, c3, c4 = st.columns(4)
     c1.metric("Risk Score", data.get("Risk Score", "N/A"))
     c2.metric("Category", data.get("Main Category", "N/A"))
@@ -74,7 +74,6 @@ if 'current_risk' in st.session_state:
 
     st.markdown("### 📋 Full Risk Registry")
     
-    # توزيع الـ 28 حقل في عمودين
     items = list(data.items())
     col_left, col_right = st.columns(2)
     
@@ -86,7 +85,6 @@ if 'current_risk' in st.session_state:
 
     st.divider()
     
-    # زر التحميل
     df = pd.DataFrame([data])
     csv_data = df.to_csv(index=False).encode('utf-8-sig')
     st.download_button(

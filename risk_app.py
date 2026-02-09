@@ -5,10 +5,11 @@ import json
 
 st.set_page_config(page_title="Risk Terminal")
 
+# 1. الربط باستخدام gemini-pro (الموديل الأكثر توافقاً)
 if "GEMINI_API_KEY" in st.secrets:
     genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
-    # جربنا هنا gemini-1.5-flash-8b لأنه الأكثر توافقاً مع v1beta
-    model = genai.GenerativeModel('gemini-1.5-flash-8b')
+    # استخدمنا gemini-pro لأنه الوحيد اللي شغال على كل الإصدارات القديمة والجديدة
+    model = genai.GenerativeModel('gemini-pro')
 else:
     st.error("Missing API Key")
     st.stop()
@@ -20,8 +21,8 @@ if st.button("Analyze"):
     if u:
         with st.spinner("Analyzing..."):
             try:
+                # طلب بسيط جداً لضمان عدم حدوث خطأ في الـ Prompt
                 p = "Analyze risk: " + u + ". Return ONLY JSON with 28 fields."
-                # محاولة توليد المحتوى
                 r = model.generate_content(p)
                 t = r.text.strip()
                 
@@ -34,14 +35,20 @@ if st.button("Analyze"):
                 d = json.loads(t)
                 st.session_state['d'] = d
             except Exception as e:
-                # لو فشل، بيعطيك أسماء الموديلات المتاحة عندك في الـ Logs
                 st.error("Error: " + str(e))
-                st.write("Check logs for available models.")
-                # سطر برمجي لمساعدتنا في معرفة الموديلات المتاحة لو استمر الخطأ
-                print([m.name for m in genai.list_models()])
+                # السطر ده هيطبع لك الموديلات المتاحة فعلاً في الـ Logs تحت
+                try:
+                    models = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
+                    st.write("Available models in your account: " + str(models))
+                except:
+                    pass
 
 if 'd' in st.session_state:
     data = st.session_state['d']
-    st.table(pd.DataFrame(list(data.items()), columns=['Field', 'Value']))
+    st.success("Analysis Complete!")
+    # عرض البيانات في جدول مرتب
+    df = pd.DataFrame(list(data.items()), columns=['Field', 'Value'])
+    st.table(df)
+    
     csv = pd.DataFrame([data]).to_csv(index=False).encode('utf-8-sig')
-    st.download_button("Save CSV", csv, "risk.csv")
+    st.download_button("Save CSV", csv, "risk_report.csv")

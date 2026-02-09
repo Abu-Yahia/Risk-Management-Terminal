@@ -25,7 +25,7 @@ def generate_risk_details(subject):
     # محاكاة استجابة الذكاء الاصطناعي (أو استدعاء API حقيقي)
     # ملاحظة: سنقوم بملئها بيانات افتراضية ذكية للتجربة
     return {
-        "Risk ID": f"RSK-{datetime.now().get_timestamp()}",
+        "Risk ID": f"RSK-{int(datetime.now().timestamp())}",
         "Key Risks": subject,
         "Risk Type": "Negative (Threat)",
         "Risk Status": "Identified",
@@ -110,3 +110,4 @@ if 'current_risk' in st.session_state:
         df = pd.DataFrame([data])
         # منطق الحفظ في CSV
         st.toast("Risk Saved Successfully!")
+

@@ -5,35 +5,36 @@ import json
 
 st.set_page_config(page_title="Risk AI", layout="wide")
 
-# الربط بالمفتاح
+# إعداد المفتاح
 if "GEMINI_API_KEY" in st.secrets:
     genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
     model = genai.GenerativeModel('gemini-1.5-flash-latest')
 else:
-    st.error("Key Missing")
+    st.error("API Key Missing")
     st.stop()
 
-st.title("🛡️ Risk Intelligence")
-subj = st.text_input("Enter Risk:")
+st.title("🛡️ Risk Terminal")
+u_input = st.text_input("Enter Risk Subject:")
 
 if st.button("Analyze"):
-    if subj:
+    if u_input:
         with st.spinner("Wait..."):
             try:
-                # برومبت مختصر جداً لمنع القطع
-                p = f"Analyze risk: {subj}. Return ONLY JSON with 28 fields."
-                r = model.generate_content(p)
-                t = r.text.strip().replace('```json', '').replace('```', '')
-                d = json.loads(t)
-                st.session_state['res'] = d
+                # استخدمنا الجمع العادي بدل f-string لمنع الخطأ
+                p = "Analyze this risk: " + u_input + ". Return ONLY JSON with 28 fields."
+                res = model.generate_content(p)
+                txt = res.text.strip().replace('```json', '').replace('```', '')
+                data = json.loads(txt)
+                st.session_state['data'] = data
             except Exception as e:
-                st.error(f"Error: {e}")
+                st.error("Error: " + str(e))
 
-if 'res' in st.session_state:
-    res = st.session_state['res']
-    # عرض البيانات كجدول لسهولة القراءة
-    df = pd.DataFrame(list(res.items()), columns=['Field', 'Value'])
+if 'data' in st.session_state:
+    d = st.session_state['data']
+    st.success("Analysis Complete")
+    # عرض النتائج في جدول
+    df = pd.DataFrame(list(d.items()), columns=['Field', 'Value'])
     st.table(df)
     
-    csv = pd.DataFrame([res]).to_csv(index=False).encode('utf-8-sig')
-    st.download_button("Download CSV", csv, "report.csv")
+    csv_data = pd.DataFrame([d]).to_csv(index=False).encode('utf-8-sig')
+    st.download_button("Download CSV", csv_data, "risk.csv")

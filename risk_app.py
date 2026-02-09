@@ -3,30 +3,27 @@ import pandas as pd
 import google.generativeai as genai
 import json
 
-st.set_page_config(page_title="Risk Intelligence 2026", layout="wide")
+st.set_page_config(page_title="Risk Intelligence", layout="wide")
 
-# 1. الربط باستخدام الموديل الموجود في حسابك فعلياً
 if "GEMINI_API_KEY" in st.secrets:
     genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
-    # اخترنا gemini-2.0-flash لأنه أسرع وأدق في تحليل البيانات
-    model = genai.GenerativeModel('gemini-2.0-flash')
+    # غيرنا الموديل لنسخة Flash Latest الموجودة في قائمتك لتجنب الـ 429 على الموديل السابق
+    model = genai.GenerativeModel('gemini-1.5-flash-latest')
 else:
     st.error("API Key Missing")
     st.stop()
 
-st.title("🛡️ SEF Risk Intelligence (v2.0)")
-u = st.text_input("Risk Subject (e.g., Supply chain disruption):")
+st.title("🛡️ SEF Risk Intelligence")
+u = st.text_input("Risk Subject:")
 
 if st.button("🚀 Run Analysis"):
     if u:
-        with st.spinner("AI is analyzing (Gemini 2.0)..."):
+        with st.spinner("AI is analyzing (Switched to Stable Model)..."):
             try:
-                # طلب التحليل للـ 28 حقل
-                p = "Analyze risk: " + u + ". Return ONLY a JSON object with exactly 28 project risk fields (ID, Description, Category, Owner, Mitigation, Score, etc.)."
+                p = "Analyze risk: " + u + ". Return ONLY JSON with 28 fields."
                 r = model.generate_content(p)
                 t = r.text.strip()
                 
-                # تنظيف الـ JSON
                 if "```json" in t:
                     t = t.split("```json")[1].split("```")[0]
                 elif "```" in t:
@@ -35,16 +32,12 @@ if st.button("🚀 Run Analysis"):
                 d = json.loads(t)
                 st.session_state['d'] = d
             except Exception as e:
-                st.error("Error during analysis: " + str(e))
+                st.error("Quota or API Error: " + str(e))
+                st.info("Try again in 1 minute if it's a rate limit issue.")
 
 if 'd' in st.session_state:
     data = st.session_state['d']
-    st.success("Analysis Complete for 28 Fields")
-    
-    # عرض النتائج في جدول احترافي
-    df = pd.DataFrame(list(data.items()), columns=['Risk Field', 'AI Analysis'])
-    st.table(df)
-    
-    # تحويل البيانات لـ CSV للتحميل
+    st.success("Analysis Complete")
+    st.table(pd.DataFrame(list(data.items()), columns=['Field', 'Value']))
     csv = pd.DataFrame([data]).to_csv(index=False).encode('utf-8-sig')
-    st.download_button("📥 Download Full Report (CSV)", csv, "risk_report.csv", "text/csv")
+    st.download_button("📥 Save CSV", csv, "risk.csv")

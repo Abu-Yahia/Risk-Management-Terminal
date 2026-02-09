@@ -3,38 +3,33 @@ import pandas as pd
 import google.generativeai as genai
 import json
 
-st.set_page_config(page_title="Risk AI", layout="wide")
+st.set_page_config(page_title="Risk AI")
 
-# إعداد المفتاح
 if "GEMINI_API_KEY" in st.secrets:
     genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
     model = genai.GenerativeModel('gemini-1.5-flash-latest')
 else:
-    st.error("API Key Missing")
+    st.error("Key Missing")
     st.stop()
 
-st.title("🛡️ Risk Terminal")
-u_input = st.text_input("Enter Risk Subject:")
+st.title("🛡️ Risk Analysis")
+u = st.text_input("Subject:")
 
-if st.button("Analyze"):
-    if u_input:
-        with st.spinner("Wait..."):
+if st.button("Run"):
+    if u:
+        with st.spinner("Wait"):
             try:
-                # استخدمنا الجمع العادي بدل f-string لمنع الخطأ
-                p = "Analyze this risk: " + u_input + ". Return ONLY JSON with 28 fields."
-                res = model.generate_content(p)
-                txt = res.text.strip().replace('```json', '').replace('```', '')
-                data = json.loads(txt)
-                st.session_state['data'] = data
+                # لا يوجد f-string هنا لمنع الخطأ
+                p = "Analyze risk: " + u + ". Return ONLY JSON with 28 fields."
+                r = model.generate_content(p)
+                t = r.text.strip().replace('```json', '').replace('```', '')
+                d = json.loads(t)
+                st.session_state['d'] = d
             except Exception as e:
-                st.error("Error: " + str(e))
+                st.error(str(e))
 
-if 'data' in st.session_state:
-    d = st.session_state['data']
-    st.success("Analysis Complete")
-    # عرض النتائج في جدول
-    df = pd.DataFrame(list(d.items()), columns=['Field', 'Value'])
-    st.table(df)
-    
-    csv_data = pd.DataFrame([d]).to_csv(index=False).encode('utf-8-sig')
-    st.download_button("Download CSV", csv_data, "risk.csv")
+if 'd' in st.session_state:
+    data = st.session_state['d']
+    st.table(pd.DataFrame(list(data.items())))
+    csv = pd.DataFrame([data]).to_csv(index=False).encode('utf-8-sig')
+    st.download_button("Save CSV", csv, "risk.csv")

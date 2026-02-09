@@ -1,113 +1,101 @@
 import streamlit as st
 import pandas as pd
-import openai  # أو استخدم مكتبة لربط Gemini
+from openai import OpenAI
 from datetime import datetime
+import json
 
-# إعدادات الصفحة
+# --- 1. إعدادات الصفحة ---
 st.set_page_config(page_title="SEF Risk Intelligence", layout="wide")
 
-# --- دالة الذكاء الاصطناعي لتوليد البيانات ---
+# --- 2. تهيئة عميل OpenAI من الـ Secrets ---
+try:
+    client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
+except Exception as e:
+    st.error("⚠️ لم يتم العثور على مفتاح API في الـ Secrets. يرجى إضافته أولاً.")
+
+# --- 3. دالة توليد المخاطر (28 حقل) ---
 def generate_risk_details(subject):
-    # هنا تضع مفتاح الـ API الخاص بك
-    # openai.api_key = "YOUR_API_KEY"
-    
     prompt = f"""
-    Analyze the following risk subject: '{subject}'
-    Provide a detailed risk assessment for 28 fields in a valid Python Dictionary format.
-    Fields: Risk ID, Key Risks, Risk Type, Risk Status, Identification Date, Risk Statement, Cause(s), 
-    Risk Event Description, Consequence(s), Main Category, Sub Category, Risk Owner, Trigger Condition(s), 
-    WBS/Activity, Objective/Value, Rank (1-5), Risk Score (Rank*Probability), Treatment Strategy, 
-    Response Plan, Action Owner, Action Progress Status, % Action Completion, Action Finish Date, 
-    Action Type.
-    Make the tone professional and industry-standard.
+    Analyze the risk: '{subject}'. 
+    Provide a professional assessment for exactly 28 fields in JSON format.
+    Fields to include:
+    1. Risk ID, 2. Key Risks, 3. Risk Type, 4. Risk Status, 5. Identification Date, 
+    6. Risk Statement, 7. Cause(s), 8. Risk Event Description, 9. Consequence(s), 
+    10. Main Category, 11. Sub Category, 12. Risk Owner, 13. Trigger Condition(s), 
+    14. WBS / Activity, 15. Objective / Value, 16. Rank, 17. Risk Score, 
+    18. Treatment Strategy, 19. Response Plan, 20. Action Owner, 
+    21. Action Progress Status, 22. % Action Completion, 23. Action Finish Date, 
+    24. Action Type, 25. Qualitative Impact, 26. Probability Level, 27. Residual Risk, 28. Notes.
+    
+    Return ONLY the JSON object.
     """
     
-    # محاكاة استجابة الذكاء الاصطناعي (أو استدعاء API حقيقي)
-    # ملاحظة: سنقوم بملئها بيانات افتراضية ذكية للتجربة
-    return {
-        "Risk ID": f"RSK-{int(datetime.now().timestamp())}",
-        "Key Risks": subject,
-        "Risk Type": "Negative (Threat)",
-        "Risk Status": "Identified",
-        "Identification Date": datetime.now().strftime("%Y-%m-%d"),
-        "Risk Statement": f"Potential for {subject} impacting project timeline.",
-        "Cause(s)": "Market volatility, supply chain disruptions.",
-        "Risk Event Description": f"Detailed breakdown of how {subject} might occur.",
-        "Consequence(s)": "Increased costs, delayed milestones.",
-        "Main Category": "Operational",
-        "Sub Category": "External Factors",
-        "Risk Owner": "Project Manager",
-        "Trigger Condition(s)": "Delay exceeding 5 working days.",
-        "WBS / Activity": "WP-04 Supply Procurement",
-        "Objective / Value": "Time & Cost",
-        "Rank": 4,
-        "Risk Score": 16,
-        "Treatment Strategy": "Mitigate",
-        "Response Plan": "Identify alternative vendors and increase safety stock.",
-        "Action Owner": "Procurement Head",
-        "Action Progress Status": "Not Started",
-        "% Action Completion": 0,
-        "Action Finish Date": "2024-12-31",
-        "Action Type": "Preventive"
-    }
+    try:
+        response = client.chat.completions.create(
+            model="gpt-3.5-turbo", # أو gpt-4
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.7
+        )
+        return json.loads(response.choices[0].message.content)
+    except Exception as e:
+        # بيانات احتياطية في حال فشل الاتصال
+        return {
+            "Risk ID": f"RSK-{int(datetime.now().timestamp())}",
+            "Key Risks": subject,
+            "Risk Score": "Error in AI Connection",
+            "Notes": str(e)
+        }
 
-# --- واجهة المستخدم ---
+# --- 4. واجهة المستخدم ---
 st.title("🛡️ SEF Risk Intelligence Terminal")
-st.markdown("---")
+st.markdown("<p style='color: gray;'>Created by Abu Yahia | Professional Risk Management</p>", unsafe_allow_html=True)
 
-# المدخل الأساسي
-subject_input = st.text_input("Enter Risk Subject (e.g., Supply Chain Delay):", placeholder="أدخل موضوع الخطر هنا...")
+subject_input = st.text_input("Enter Risk Subject (e.g., Delay in construction):")
 
-if st.button("🚀 Generate Full Risk Analysis"):
+if st.button("🚀 Generate Full 28-Field Analysis"):
     if subject_input:
-        with st.spinner("AI is analyzing and generating fields..."):
-            # استدعاء الدالة
+        with st.spinner("AI is analyzing all 28 risk dimensions..."):
             risk_data = generate_risk_details(subject_input)
             st.session_state['current_risk'] = risk_data
-            st.success("Analysis Generated!")
+            st.success("Analysis Complete!")
     else:
-        st.warning("Please enter a subject first.")
+        st.warning("Please enter a subject.")
 
-# عرض النتائج في شكل احترافي
+# --- 5. عرض النتائج وحفظها ---
 if 'current_risk' in st.session_state:
     data = st.session_state['current_risk']
     
-    # صف الهيدر (المعلومات الحساسة)
-    c1, c2, c3, c4 = st.columns(4)
-    c1.metric("Risk Score", data['Risk Score'], delta="-High" if data['Risk Score'] > 12 else "Normal")
-    c2.metric("Rank", data['Rank'])
-    c3.metric("Type", data['Risk Type'])
-    c4.metric("Status", data['Risk Status'])
+    # عرض المؤشرات الرئيسية
+    col1, col2, col3, col4 = st.columns(4)
+    col1.metric("Risk Score", data.get("Risk Score", "N/A"))
+    col2.metric("Rank", data.get("Rank", "N/A"))
+    col3.metric("Owner", data.get("Risk Owner", "N/A"))
+    col4.metric("Status", data.get("Risk Status", "N/A"))
 
-    st.markdown("---")
+    st.divider()
+
+    # عرض الـ 28 حقل كاملة
+    st.subheader("📋 Comprehensive Risk Registry (28 Points)")
     
-    # توزيع الحقول الـ 28 على تبويبات لتسهيل القراءة
-    t1, t2, t3 = st.tabs(["📋 General Info", "🔍 Root Cause & Impact", "🛠️ Treatment Plan"])
+    # تقسيم العرض لسهولة القراءة
+    items = list(data.items())
+    half = len(items) // 2
     
-    with t1:
-        col_a, col_b = st.columns(2)
-        col_a.write(f"**Risk Statement:** {data['Risk Statement']}")
-        col_a.write(f"**Main Category:** {data['Main Category']}")
-        col_b.write(f"**Risk Owner:** {data['Risk Owner']}")
-        col_b.write(f"**Identification Date:** {data['Identification Date']}")
+    left_col, right_col = st.columns(2)
+    with left_col:
+        for key, value in items[:half]:
+            st.write(f"**{key}:** {value}")
+            
+    with right_col:
+        for key, value in items[half:]:
+            st.write(f"**{key}:** {value}")
 
-    with t2:
-        st.write(f"**Causes:** {data['Cause(s)']}")
-        st.write(f"**Event Description:** {data['Risk Event Description']}")
-        st.write(f"**Consequences:** {data['Consequence(s)']}")
-        st.write(f"**Trigger Conditions:** {data['Trigger Condition(s)']}")
+    st.divider()
 
-    with t3:
-        st.info(f"**Strategy:** {data['Treatment Strategy']}")
-        st.write(f"**Response Plan:** {data['Response Plan']}")
-        col_x, col_y, col_z = st.columns(3)
-        col_x.write(f"**Action Owner:** {data['Action Owner']}")
-        col_y.write(f"**Progress:** {data['Action Progress Status']}")
-        col_z.write(f"**Finish Date:** {data['Action Finish Date']}")
-
-    # زر الحفظ في قاعدة البيانات
-    if st.button("💾 Save to Database"):
+    # زر الحفظ
+    if st.button("💾 Save Risk to CSV Database"):
         df = pd.DataFrame([data])
-        # منطق الحفظ في CSV
-        st.toast("Risk Saved Successfully!")
-
+        # في Streamlit Cloud لا يمكن تعديل ملفات السورس بسهولة، لكن سنعرضه للتحميل
+        csv = df.to_csv(index=False).encode('utf-8-sig')
+        st.download_button("📥 Download Registry as CSV", data=csv, file_name=f"risk_{data['Risk ID']}.csv")
+        st.toast("Risk ready for download!")

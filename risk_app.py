@@ -9,7 +9,6 @@ st.set_page_config(page_title="SEF Risk Intelligence", layout="wide")
 
 # --- 2. تهيئة عميل OpenAI من الـ Secrets ---
 try:
-    # التأكد من وجود المفتاح في Secrets لتجنب توقف التطبيق
     client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
 except Exception as e:
     st.error("⚠️ خطأ: لم يتم العثور على OPENAI_API_KEY في إعدادات Secrets.")
@@ -54,4 +53,16 @@ def generate_risk_details(subject):
         )
         return json.loads(response.choices[0].message.content)
     except Exception as e:
-        # بيانات احتياطية في
+        # هنا تم إصلاح المسافات (Indentation Fixed)
+        return {
+            "Risk ID": f"RSK-{int(datetime.now().timestamp())}",
+            "Key Risks": subject,
+            "Risk Score": "Error",
+            "Notes": f"API Error: {str(e)}"
+        }
+
+# --- 5. واجهة المستخدم ---
+st.title("🛡️ SEF Risk Intelligence Terminal")
+st.markdown(f"<p style='color: #666;'>Authorized Categories: {', '.join(MAIN_CATEGORIES)}</p>", unsafe_allow_html=True)
+
+subject_input = st.text_input("Enter

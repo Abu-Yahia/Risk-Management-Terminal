@@ -9,9 +9,13 @@ st.set_page_config(page_title="SEF Risk Intelligence", layout="wide")
 
 # --- 2. تهيئة عميل OpenAI من الـ Secrets ---
 try:
-    client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
+    if "OPENAI_API_KEY" in st.secrets:
+        client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
+    else:
+        st.error("⚠️ OPENAI_API_KEY not found in Secrets.")
+        st.stop()
 except Exception as e:
-    st.error("⚠️ خطأ: لم يتم العثور على OPENAI_API_KEY في إعدادات Secrets.")
+    st.error(f"⚠️ Error initializing OpenAI: {e}")
     st.stop()
 
 # --- 3. قائمة الأقسام الرئيسية (بناءً على صورتك المرفقة) ---
@@ -45,7 +49,7 @@ def generate_risk_details(subject):
         response = client.chat.completions.create(
             model="gpt-3.5-turbo",
             messages=[
-                {"role": "system", "content": "You are a professional Risk Manager expert in construction and project management."},
+                {"role": "system", "content": "You are a professional Risk Manager expert in construction."},
                 {"role": "user", "content": prompt}
             ],
             response_format={ "type": "json_object" },
@@ -53,16 +57,32 @@ def generate_risk_details(subject):
         )
         return json.loads(response.choices[0].message.content)
     except Exception as e:
-        # هنا تم إصلاح المسافات (Indentation Fixed)
         return {
             "Risk ID": f"RSK-{int(datetime.now().timestamp())}",
             "Key Risks": subject,
             "Risk Score": "Error",
-            "Notes": f"API Error: {str(e)}"
+            "Notes": f"Error: {str(e)}"
         }
 
 # --- 5. واجهة المستخدم ---
 st.title("🛡️ SEF Risk Intelligence Terminal")
-st.markdown(f"<p style='color: #666;'>Authorized Categories: {', '.join(MAIN_CATEGORIES)}</p>", unsafe_allow_html=True)
+st.markdown(f"**Authorized Categories:** {', '.join(MAIN_CATEGORIES)}")
 
-subject_input = st.text_input("Enter
+subject_input = st.text_input("Enter Risk Subject (e.g., Supply chain disruption):")
+
+if st.button("🚀 Generate Full 28-Point Analysis"):
+    if subject_input:
+        with st.spinner("AI is analyzing..."):
+            result = generate_risk_details(subject_input)
+            st.session_state['current_risk'] = result
+            st.success("Analysis Generated!")
+    else:
+        st.warning("Please enter a subject.")
+
+# --- 6. عرض النتائج وحفظها ---
+if 'current_risk' in st.session_state:
+    data = st.session_state['current_risk']
+    
+    # بطاقات عرض سريعة
+    c1, c2, c3, c4 = st.columns(4)
+    c1.metric("Risk Score", data.get("Risk
